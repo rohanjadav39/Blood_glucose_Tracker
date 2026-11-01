@@ -19,6 +19,7 @@ import { Button } from './ui/Button';
 export function ReportsSection({
   selectedDate,
   onDateChange,
+  refreshKey = 0,
   onEditReading,
   onDeleteReading,
   onAddNewReading,
@@ -43,7 +44,7 @@ export function ReportsSection({
 
   useEffect(() => {
     fetchReport();
-  }, [selectedDate]);
+  }, [selectedDate, refreshKey]);
 
   const { daily, monthToDate, monthly } = reportData || {};
 

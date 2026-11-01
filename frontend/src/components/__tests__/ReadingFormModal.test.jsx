@@ -258,4 +258,42 @@ describe('ReadingFormModal (React Testing Library)', () => {
 
     expect(mockOnClose).toHaveBeenCalledTimes(1);
   });
+
+  it('only marks slots as (Already logged) for the selected date and respects defaultSlot', () => {
+    const multiDayReadings = [
+      { id: 1, date: '2026-10-30', slot: 'Morning (fasting)', value: 92 },
+      { id: 2, date: '2026-10-30', slot: 'After breakfast', value: 130 },
+      { id: 3, date: '2026-10-31', slot: 'Morning (fasting)', value: 95 },
+    ];
+
+    render(
+      <ReadingFormModal
+        isOpen={true}
+        onClose={mockOnClose}
+        onSubmit={mockOnSubmit}
+        defaultDate="2026-10-31"
+        defaultSlot="After lunch"
+        existingDayReadings={multiDayReadings}
+      />
+    );
+
+    // Date is 2026-10-31 where ONLY "Morning (fasting)" is taken
+    const slotSelect = screen.getByLabelText(/Time Slot/i);
+    expect(slotSelect.value).toBe('After lunch');
+
+    const options = Array.from(slotSelect.querySelectorAll('option'));
+    const morningOpt = options.find((o) => o.value === 'Morning (fasting)');
+    const breakfastOpt = options.find((o) => o.value === 'After breakfast');
+    const lunchOpt = options.find((o) => o.value === 'After lunch');
+
+    expect(morningOpt.textContent).toContain('(Already logged)');
+    expect(morningOpt.disabled).toBe(true);
+
+    // After breakfast is NOT taken on 2026-10-31 (only on 2026-10-30)
+    expect(breakfastOpt.textContent).not.toContain('(Already logged)');
+    expect(breakfastOpt.disabled).toBe(false);
+
+    expect(lunchOpt.textContent).not.toContain('(Already logged)');
+    expect(lunchOpt.disabled).toBe(false);
+  });
 });

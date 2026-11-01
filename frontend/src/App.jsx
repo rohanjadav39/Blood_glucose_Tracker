@@ -36,11 +36,11 @@ import { Card } from './components/ui/Card';
 export function App() {
   const { user, isAuthenticated, isLoading: authLoading, quickDemoLogin } = useAuth();
 
-  // Dark mode state with localStorage persistence
+  // Dark mode state with localStorage persistence (defaults to dark mode)
   const [darkMode, setDarkMode] = useState(() => {
     const saved = localStorage.getItem('sweety_theme');
-    if (saved) return saved === 'dark';
-    return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    if (saved !== null) return saved === 'dark';
+    return true; // Default to dark mode
   });
 
   useEffect(() => {
@@ -69,11 +69,13 @@ export function App() {
   const [selectedDate, setSelectedDate] = useState(getTodayString());
   const [readings, setReadings] = useState([]);
   const [isLoadingReadings, setIsLoadingReadings] = useState(false);
+  const [reportRefreshKey, setReportRefreshKey] = useState(0);
 
   // Modals state
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState('login');
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [formDefaultSlot, setFormDefaultSlot] = useState(null);
   const [editingReading, setEditingReading] = useState(null);
   const [deletingReading, setDeletingReading] = useState(null);
 
@@ -86,23 +88,27 @@ export function App() {
   };
 
   // Fetch readings for current user: paginated 20-items (5 days x 4) or single-day
-  const fetchReadings = async () => {
+  const fetchReadings = async (overrideParams = {}) => {
     if (!isAuthenticated) return;
     setIsLoadingReadings(true);
     try {
-      if (readingsViewMode === 'paginated') {
-        const res = await api.readings.getAll({ page: currentPage, limit: 20 });
+      const targetMode = overrideParams.mode || readingsViewMode;
+      const targetDate = overrideParams.date || selectedDate;
+      const targetPage = overrideParams.page !== undefined ? overrideParams.page : currentPage;
+
+      if (targetMode === 'paginated') {
+        const res = await api.readings.getAll({ page: targetPage, limit: 20 });
         if (res.success) {
           setReadings(res.readings || []);
           setPaginationMeta({
-            page: res.page || currentPage,
+            page: res.page || targetPage,
             limit: res.limit || 20,
             total: res.total !== undefined ? res.total : (res.readings?.length || 0),
             totalPages: res.totalPages || 1,
           });
         }
       } else {
-        const res = await api.readings.getAll({ date: selectedDate });
+        const res = await api.readings.getAll({ date: targetDate });
         if (res.success) {
           setReadings(res.readings || []);
         }
@@ -123,27 +129,50 @@ export function App() {
   }, [isAuthenticated, selectedDate, readingsViewMode, currentPage]);
 
   // Reading CRUD Handlers
-  const handleOpenAdd = (date = selectedDate) => {
+  const handleOpenAdd = (date = selectedDate, slot = null) => {
     setEditingReading(null);
     setSelectedDate(date);
+    setFormDefaultSlot(slot);
     setIsFormOpen(true);
   };
 
   const handleOpenEdit = (reading) => {
     setEditingReading(reading);
+    setFormDefaultSlot(null);
     setIsFormOpen(true);
   };
 
   const handleSaveReading = async (readingData) => {
     try {
+      let savedReading = null;
       if (readingData.id) {
-        await api.readings.update(readingData.id, readingData);
+        const res = await api.readings.update(readingData.id, readingData);
+        savedReading = res.reading || { ...readingData, id: readingData.id };
         showToast('Glucose reading updated successfully.');
+        setReadings((prev) =>
+          prev.map((r) => (String(r.id) === String(readingData.id) ? { ...r, ...savedReading } : r))
+        );
       } else {
-        await api.readings.create(readingData);
+        const res = await api.readings.create(readingData);
+        savedReading = res.reading || { ...readingData, id: Date.now() };
         showToast('Glucose reading logged successfully.');
       }
-      await fetchReadings();
+
+      const targetDate = savedReading?.date || readingData.date;
+      setSelectedDate(targetDate);
+
+      // Re-fetch immediately with targeted parameters so view is guaranteed fresh
+      if (!readingData.id && readingsViewMode === 'paginated') {
+        setCurrentPage(1);
+        await fetchReadings({ page: 1, mode: 'paginated' });
+      } else if (readingsViewMode === 'singleDay') {
+        await fetchReadings({ date: targetDate, mode: 'singleDay' });
+      } else {
+        await fetchReadings();
+      }
+
+      // Automatically refresh Reports section so analytics and charts update immediately
+      setReportRefreshKey((prev) => prev + 1);
     } catch (err) {
       throw err;
     }
@@ -151,11 +180,20 @@ export function App() {
 
   const handleDeleteReading = async (id) => {
     try {
+      // Optimistically remove from state immediately so UI updates with 0 lag
+      setReadings((prev) => prev.filter((r) => String(r.id) !== String(id)));
+      setPaginationMeta((prev) => ({
+        ...prev,
+        total: Math.max(0, prev.total - 1),
+      }));
+
       await api.readings.delete(id);
       showToast('Glucose reading removed.', 'info');
       await fetchReadings();
+      setReportRefreshKey((prev) => prev + 1);
     } catch (err) {
       console.error('Failed to delete reading:', err);
+      await fetchReadings();
     }
   };
 
@@ -178,13 +216,12 @@ export function App() {
       {toast && (
         <div className="fixed bottom-5 right-5 z-50 animate-in slide-in-from-bottom-3 duration-200">
           <div
-            className={`flex items-center gap-2.5 rounded-xl px-4 py-3 shadow-xl border text-sm font-semibold ${
-              toast.type === 'success'
+            className={`flex items-center gap-2.5 rounded-xl px-4 py-3 shadow-xl border text-sm font-semibold ${toast.type === 'success'
                 ? 'bg-emerald-900 text-emerald-100 border-emerald-700 dark:bg-emerald-950 dark:text-emerald-200 dark:border-emerald-700'
                 : toast.type === 'destructive'
-                ? 'bg-rose-900 text-rose-100 border-rose-700 dark:bg-rose-950 dark:text-rose-200 dark:border-rose-700'
-                : 'bg-slate-900 text-slate-100 border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600'
-            }`}
+                  ? 'bg-rose-900 text-rose-100 border-rose-700 dark:bg-rose-950 dark:text-rose-200 dark:border-rose-700'
+                  : 'bg-slate-900 text-slate-100 border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600'
+              }`}
           >
             {toast.type === 'success' ? (
               <CheckCircle2 className="h-4 w-4 text-emerald-400" />
@@ -215,7 +252,7 @@ export function App() {
             {/* Hero Section */}
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 sm:pt-20 pb-16 sm:pb-24">
               <div className="grid lg:grid-cols-12 gap-12 items-center">
-                
+
                 {/* Left Column: Heading, Badges, CTAs */}
                 <div className="lg:col-span-7 space-y-6 text-center lg:text-left">
                   <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-4 py-1.5 text-xs font-bold text-emerald-800 border border-emerald-200/80 shadow-sm dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800/80">
@@ -287,7 +324,7 @@ export function App() {
                 <div className="lg:col-span-5 relative">
                   {/* Decorative Glow */}
                   <div className="absolute -inset-2 rounded-3xl bg-gradient-to-r from-emerald-500 to-teal-500 opacity-20 blur-xl dark:opacity-30" />
-                  
+
                   {/* Mock Tracker Card */}
                   <div className="relative rounded-2xl border border-slate-200/90 bg-white/95 p-6 shadow-2xl backdrop-blur-xl transition-all dark:border-slate-800 dark:bg-slate-900/90">
                     {/* Header inside mock */}
@@ -458,32 +495,19 @@ export function App() {
 
             {/* Patient Header Welcome Banner */}
             <div className="rounded-2xl bg-gradient-to-r from-emerald-700 via-emerald-600 to-teal-600 p-6 text-white shadow-lg shadow-emerald-700/15">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                  <div className="flex items-center gap-2 text-emerald-100 text-xs font-semibold uppercase tracking-wider">
-                    <ShieldCheck className="h-4 w-4" />
-                    Patient Blood Glucose Monitor
-                  </div>
-                  <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight mt-1 text-white">
-                    Hello, {user?.name || 'Patient'}!
-                  </h1>
-                  <p className="text-xs sm:text-sm text-emerald-100/90 mt-1">
-                    {readingsViewMode === 'paginated'
-                      ? `Displaying 5-day paginated log (Page ${paginationMeta.page} of ${paginationMeta.totalPages} • ${paginationMeta.total} total readings)`
-                      : `Viewing log for ${formatDisplayDate(selectedDate)} (${readings.length} of 4 slots logged)`}
-                  </p>
+              <div>
+                <div className="flex items-center gap-2 text-emerald-100 text-xs font-semibold uppercase tracking-wider">
+                  <ShieldCheck className="h-4 w-4" />
+                  Patient Blood Glucose Monitor
                 </div>
-
-                <div className="flex items-center gap-2.5">
-                  <Button
-                    onClick={() => handleOpenAdd(selectedDate)}
-                    variant="secondary"
-                    className="gap-2 bg-white text-emerald-800 hover:bg-emerald-50 shadow font-semibold dark:bg-slate-900 dark:text-emerald-300 dark:hover:bg-slate-800"
-                  >
-                    <PlusCircle className="h-4 w-4 text-emerald-700 dark:text-emerald-400" />
-                    Log Reading
-                  </Button>
-                </div>
+                <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight mt-1 text-white">
+                  Hello, {user?.name || 'Patient'}!
+                </h1>
+                <p className="text-xs sm:text-sm text-emerald-100/90 mt-1">
+                  {readingsViewMode === 'paginated'
+                    ? `Displaying 5-day paginated log (Page ${paginationMeta.page} of ${paginationMeta.totalPages} • ${paginationMeta.total} total readings)`
+                    : `Viewing log for ${formatDisplayDate(selectedDate)} (${readings.length} of 4 slots logged)`}
+                </p>
               </div>
             </div>
 
@@ -492,11 +516,10 @@ export function App() {
               <button
                 type="button"
                 onClick={() => setActiveView('readings')}
-                className={`flex items-center gap-2 px-5 py-3 text-sm font-bold border-b-2 transition-all ${
-                  activeView === 'readings'
+                className={`flex items-center gap-2 px-5 py-3 text-sm font-bold border-b-2 transition-all ${activeView === 'readings'
                     ? 'border-emerald-600 text-emerald-700 dark:border-emerald-400 dark:text-emerald-400'
                     : 'border-transparent text-slate-500 hover:text-slate-900 hover:border-slate-300 dark:text-slate-400 dark:hover:text-slate-200'
-                }`}
+                  }`}
               >
                 <Activity className="h-4 w-4" />
                 Readings Log
@@ -508,11 +531,10 @@ export function App() {
               <button
                 type="button"
                 onClick={() => setActiveView('reports')}
-                className={`flex items-center gap-2 px-5 py-3 text-sm font-bold border-b-2 transition-all ${
-                  activeView === 'reports'
+                className={`flex items-center gap-2 px-5 py-3 text-sm font-bold border-b-2 transition-all ${activeView === 'reports'
                     ? 'border-emerald-600 text-emerald-700 dark:border-emerald-400 dark:text-emerald-400'
                     : 'border-transparent text-slate-500 hover:text-slate-900 hover:border-slate-300 dark:text-slate-400 dark:hover:text-slate-200'
-                }`}
+                  }`}
               >
                 <FileText className="h-4 w-4" />
                 Reports & Analytics
@@ -533,11 +555,7 @@ export function App() {
                     setReadingsViewMode(newMode);
                     setCurrentPage(1);
                   }}
-                  onAddNew={(date, slot) => {
-                    setEditingReading(null);
-                    setSelectedDate(date);
-                    setIsFormOpen(true);
-                  }}
+                  onAddNew={(date, slot) => handleOpenAdd(date, slot)}
                   onEdit={handleOpenEdit}
                   onDelete={(reading) => setDeletingReading(reading)}
                 />
@@ -550,6 +568,7 @@ export function App() {
                 <ReportsSection
                   selectedDate={selectedDate}
                   onDateChange={setSelectedDate}
+                  refreshKey={reportRefreshKey}
                   onEditReading={handleOpenEdit}
                   onDeleteReading={(reading) => setDeletingReading(reading)}
                   onAddNewReading={(date) => handleOpenAdd(date)}
@@ -651,10 +670,12 @@ export function App() {
         onClose={() => {
           setIsFormOpen(false);
           setEditingReading(null);
+          setFormDefaultSlot(null);
         }}
         onSubmit={handleSaveReading}
         initialData={editingReading}
         defaultDate={selectedDate}
+        defaultSlot={formDefaultSlot}
         existingDayReadings={readings}
       />
 

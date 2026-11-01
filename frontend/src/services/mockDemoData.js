@@ -17,8 +17,9 @@ export function getInitialDemoReadings() {
   const readings = [];
   let idCounter = 1;
 
-  // 10 consecutive days with all 4 slots (40 readings)
-  // Cleanly demonstrates 2 pages of 20 readings (5 days x 4 readings per page)
+  // 10 consecutive days leading up to today:
+  // Today (offset 0) has 2 readings logged (fasting & breakfast), leaving lunch & dinner open for logging!
+  // Past days (offsets 1-9) have all 4 slots complete (38 readings total, showing multi-page log)
   for (let offset = 0; offset <= 9; offset++) {
     const date = adjustDate(today, -offset);
     const sampleVals = [
@@ -28,7 +29,8 @@ export function getInitialDemoReadings() {
       { slot: SLOTS[3], value: 118 + (offset % 6) * 4 },  // After dinner ~118-138
     ];
 
-    for (let i = 0; i < 4; i++) {
+    const slotsCountForDay = offset === 0 ? 2 : 4;
+    for (let i = 0; i < slotsCountForDay; i++) {
       readings.push({
         id: idCounter++,
         user_id: 1,
@@ -44,9 +46,24 @@ export function getInitialDemoReadings() {
   return readings;
 }
 
+const slotOrder = {
+  'Morning (fasting)': 1,
+  'After breakfast': 2,
+  'After lunch': 3,
+  'After dinner': 4,
+};
+
+function sortReadings(list) {
+  return [...list].sort((a, b) => {
+    const dateCmp = b.date.localeCompare(a.date);
+    if (dateCmp !== 0) return dateCmp;
+    return (slotOrder[a.slot] || 5) - (slotOrder[b.slot] || 5);
+  });
+}
+
 export const mockApi = {
   getReadings: (params = {}) => {
-    let readings = getInitialDemoReadings();
+    let readings = sortReadings(getInitialDemoReadings());
 
     if (params.date) {
       readings = readings.filter((r) => r.date === params.date);
@@ -85,7 +102,22 @@ export const mockApi = {
   },
 
   createReading: (data) => {
-    const readings = getInitialDemoReadings();
+    let readings = getInitialDemoReadings();
+
+    const dayReadings = readings.filter((r) => r.date === data.date);
+    if (dayReadings.length >= 4) {
+      const err = new Error('You can add only 4 readings per day.');
+      err.status = 400;
+      throw err;
+    }
+
+    const duplicate = dayReadings.find((r) => r.slot === data.slot);
+    if (duplicate) {
+      const err = new Error(`You already have an ${data.slot} reading for this date.`);
+      err.status = 400;
+      throw err;
+    }
+
     const newReading = {
       id: Date.now(),
       user_id: 1,
@@ -94,7 +126,7 @@ export const mockApi = {
       value: Number(data.value),
       created_at: new Date().toISOString(),
     };
-    readings.unshift(newReading);
+    readings = sortReadings([newReading, ...readings]);
     localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(readings));
     return { success: true, reading: newReading };
   },
@@ -104,6 +136,7 @@ export const mockApi = {
     readings = readings.map((r) =>
       String(r.id) === String(id) ? { ...r, ...data, value: Number(data.value) } : r
     );
+    readings = sortReadings(readings);
     localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(readings));
     return { success: true, reading: readings.find((r) => String(r.id) === String(id)) };
   },

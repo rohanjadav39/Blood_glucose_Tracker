@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Clock, Gauge, Info } from 'lucide-react';
+import { Calendar, Clock, Gauge, Info, AlertCircle } from 'lucide-react';
 import { SLOTS, SLOT_CONFIG, getGlucoseCategory } from '../utils/glucoseHelpers';
 import { getTodayString } from '../utils/dateHelpers';
 import { Dialog } from './ui/Dialog';
@@ -8,19 +8,32 @@ import { Input } from './ui/Input';
 import { Select } from './ui/Select';
 import { Alert } from './ui/Alert';
 
+function normalizeDate(val) {
+  if (!val) return '';
+  if (typeof val === 'string') return val.substring(0, 10);
+  if (val instanceof Date) {
+    const y = val.getFullYear();
+    const m = String(val.getMonth() + 1).padStart(2, '0');
+    const d = String(val.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+  return String(val).substring(0, 10);
+}
+
 export function ReadingFormModal({
   isOpen,
   onClose,
   onSubmit,
   initialData = null,
   defaultDate = null,
+  defaultSlot = null,
   existingDayReadings = [],
 }) {
   const isEdit = !!initialData;
   const todayStr = getTodayString();
 
-  const [date, setDate] = useState(defaultDate || todayStr);
-  const [slot, setSlot] = useState(SLOTS[0]);
+  const [date, setDate] = useState(defaultDate ? normalizeDate(defaultDate) : todayStr);
+  const [slot, setSlot] = useState(defaultSlot || SLOTS[0]);
   const [value, setValue] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -28,19 +41,57 @@ export function ReadingFormModal({
   useEffect(() => {
     if (isOpen) {
       if (initialData) {
-        setDate(initialData.date);
+        setDate(normalizeDate(initialData.date));
         setSlot(initialData.slot);
         setValue(String(initialData.value));
       } else {
-        setDate(defaultDate || todayStr);
-        const takenSlots = (existingDayReadings || []).map((r) => r.slot);
-        const firstAvailableSlot = SLOTS.find((s) => !takenSlots.includes(s));
-        setSlot(firstAvailableSlot || SLOTS[0]);
+        const targetDate = defaultDate ? normalizeDate(defaultDate) : todayStr;
+        setDate(targetDate);
+
+        const dayReadings = (existingDayReadings || []).filter(
+          (r) => normalizeDate(r.date) === targetDate
+        );
+        const takenSlots = dayReadings.map((r) => r.slot);
+
+        if (defaultSlot && !takenSlots.includes(defaultSlot)) {
+          setSlot(defaultSlot);
+        } else {
+          const firstAvailableSlot = SLOTS.find((s) => !takenSlots.includes(s));
+          setSlot(firstAvailableSlot || defaultSlot || SLOTS[0]);
+        }
         setValue('');
       }
       setError('');
     }
-  }, [isOpen, initialData]);
+  }, [isOpen, initialData, defaultDate, defaultSlot]);
+
+  // Existing readings for the currently selected date
+  const dayReadingsForDate = (existingDayReadings || []).filter(
+    (r) =>
+      normalizeDate(r.date) === date &&
+      (!isEdit || String(r.id) !== String(initialData?.id))
+  );
+  const takenSlotsForDate = dayReadingsForDate.map((r) => r.slot);
+  const isDayFull = !isEdit && dayReadingsForDate.length >= 4;
+
+  const handleDateChange = (newDate) => {
+    setDate(newDate);
+    setError('');
+
+    // If currently selected slot is taken on this new date, auto-switch to first available slot
+    if (!isEdit) {
+      const targetReadings = (existingDayReadings || []).filter(
+        (r) => normalizeDate(r.date) === newDate
+      );
+      const targetTakenSlots = targetReadings.map((r) => r.slot);
+      if (targetTakenSlots.includes(slot)) {
+        const nextFree = SLOTS.find((s) => !targetTakenSlots.includes(s));
+        if (nextFree) {
+          setSlot(nextFree);
+        }
+      }
+    }
+  };
 
   const validateForm = () => {
     if (!date) {
@@ -59,15 +110,18 @@ export function ReadingFormModal({
       return 'Value must be between 40 and 600 mg/dl.';
     }
 
-    const otherReadings = existingDayReadings.filter(
-      (r) => !isEdit || String(r.id) !== String(initialData?.id)
+    // Filter existing readings strictly for this selected date
+    const readingsForDay = (existingDayReadings || []).filter(
+      (r) =>
+        normalizeDate(r.date) === date &&
+        (!isEdit || String(r.id) !== String(initialData?.id))
     );
 
-    if (otherReadings.length >= 4) {
+    if (!isEdit && readingsForDay.length >= 4) {
       return 'You can add only 4 readings per day.';
     }
 
-    const duplicateSlot = otherReadings.find((r) => r.slot === slot);
+    const duplicateSlot = readingsForDay.find((r) => r.slot === slot);
     if (duplicateSlot) {
       return `You already have an ${slot} reading for this date.`;
     }
@@ -123,6 +177,15 @@ export function ReadingFormModal({
         </div>
       )}
 
+      {isDayFull && !error && (
+        <div className="mb-4">
+          <Alert variant="warning">
+            All 4 clinical slots (Fasting, Breakfast, Lunch, Dinner) have already been logged for this date.
+            To change a value, you can edit or delete an existing reading from that day.
+          </Alert>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Date Field */}
         <div>
@@ -135,10 +198,7 @@ export function ReadingFormModal({
               type="date"
               max={todayStr}
               value={date}
-              onChange={(e) => {
-                setDate(e.target.value);
-                setError('');
-              }}
+              onChange={(e) => handleDateChange(e.target.value)}
               required
               className="pl-9"
             />
@@ -165,11 +225,9 @@ export function ReadingFormModal({
               className="pl-9"
             >
               {SLOTS.map((s) => {
-                const isTaken = existingDayReadings.some(
-                  (r) => r.slot === s && (!isEdit || String(r.id) !== String(initialData?.id))
-                );
+                const isTaken = takenSlotsForDate.includes(s);
                 return (
-                  <option key={s} value={s}>
+                  <option key={s} value={s} disabled={!isEdit && isTaken}>
                     {s} {isTaken ? '(Already logged)' : ''}
                   </option>
                 );
@@ -232,7 +290,7 @@ export function ReadingFormModal({
               <span className="h-2 w-2 rounded-full bg-emerald-500" />
               <span>Normal Post-Meal: &lt;140 mg/dl</span>
             </div>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-2">
               <span className="h-2 w-2 rounded-full bg-amber-500" />
               <span>Elevated: 140–199 mg/dl</span>
             </div>
@@ -253,7 +311,12 @@ export function ReadingFormModal({
           >
             Cancel
           </Button>
-          <Button type="submit" isLoading={isSubmitting} className="gap-2">
+          <Button
+            type="submit"
+            isLoading={isSubmitting}
+            disabled={isDayFull}
+            className="gap-2"
+          >
             {isEdit ? 'Update Reading' : 'Save Reading'}
           </Button>
         </div>
