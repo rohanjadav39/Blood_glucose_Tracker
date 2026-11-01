@@ -60,7 +60,23 @@ export function AuthProvider({ children }) {
   };
 
   const quickDemoLogin = async () => {
-    return login('demo@sweety.app', 'Password123!');
+    try {
+      return await login('demo@sweety.app', 'Password123!');
+    } catch (err) {
+      console.info('Backend unavailable or not seeded yet. Activating Interactive Demo Mode fallback.');
+      const demoUser = {
+        id: 1,
+        name: 'Demo Patient',
+        email: 'demo@sweety.app',
+        isDemoOffline: true,
+      };
+      const demoToken = 'demo-offline-jwt-token';
+      localStorage.setItem('sweety_token', demoToken);
+      localStorage.setItem('sweety_user', JSON.stringify(demoUser));
+      setToken(demoToken);
+      setUser(demoUser);
+      return demoUser;
+    }
   };
 
   const logout = () => {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Clock, Gauge, AlertCircle, Info } from 'lucide-react';
+import { Calendar, Clock, Gauge, Info } from 'lucide-react';
 import { SLOTS, SLOT_CONFIG, getGlucoseCategory } from '../utils/glucoseHelpers';
 import { getTodayString } from '../utils/dateHelpers';
 import { Dialog } from './ui/Dialog';
@@ -12,9 +12,9 @@ export function ReadingFormModal({
   isOpen,
   onClose,
   onSubmit,
-  initialData = null, // if provided, modal operates in Edit mode
+  initialData = null,
   defaultDate = null,
-  existingDayReadings = [], // readings for current day to assist user
+  existingDayReadings = [],
 }) {
   const isEdit = !!initialData;
   const todayStr = getTodayString();
@@ -26,24 +26,23 @@ export function ReadingFormModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    if (initialData) {
-      setDate(initialData.date);
-      setSlot(initialData.slot);
-      setValue(String(initialData.value));
-    } else {
-      setDate(defaultDate || todayStr);
-      // Pick first slot not yet taken on this date if available
-      const takenSlots = existingDayReadings.map((r) => r.slot);
-      const firstAvailableSlot = SLOTS.find((s) => !takenSlots.includes(s));
-      setSlot(firstAvailableSlot || SLOTS[0]);
-      setValue('');
+    if (isOpen) {
+      if (initialData) {
+        setDate(initialData.date);
+        setSlot(initialData.slot);
+        setValue(String(initialData.value));
+      } else {
+        setDate(defaultDate || todayStr);
+        const takenSlots = (existingDayReadings || []).map((r) => r.slot);
+        const firstAvailableSlot = SLOTS.find((s) => !takenSlots.includes(s));
+        setSlot(firstAvailableSlot || SLOTS[0]);
+        setValue('');
+      }
+      setError('');
     }
-    setError('');
-  }, [initialData, defaultDate, isOpen, existingDayReadings]);
+  }, [isOpen, initialData]);
 
-  // Client-side validation matching assignment requirements
   const validateForm = () => {
-    // Rule: Date cannot be in the future
     if (!date) {
       return 'Please choose a date.';
     }
@@ -51,19 +50,15 @@ export function ReadingFormModal({
       return 'Date cannot be in the future.';
     }
 
-    // Rule: Value is required
     if (value === undefined || value === null || String(value).trim() === '') {
       return 'Please enter a glucose value.';
     }
 
-    // Rule: Value must be a whole number between 40 and 600
     const num = Number(value);
     if (isNaN(num) || !Number.isInteger(num) || num < 40 || num > 600) {
       return 'Value must be between 40 and 600 mg/dl.';
     }
 
-    // Rule: Only one reading per slot per day & Max 4 readings per day
-    // (If not editing the current reading)
     const otherReadings = existingDayReadings.filter(
       (r) => !isEdit || String(r.id) !== String(initialData?.id)
     );
@@ -106,7 +101,6 @@ export function ReadingFormModal({
     }
   };
 
-  // Preview category badge based on current typed value
   const numVal = parseInt(value, 10);
   const previewCategory = !isNaN(numVal) && numVal >= 40 && numVal <= 600
     ? getGlucoseCategory(numVal)
@@ -132,11 +126,12 @@ export function ReadingFormModal({
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Date Field */}
         <div>
-          <label className="mb-1 block text-xs font-semibold text-slate-700">
+          <label htmlFor="reading-date" className="mb-1 block text-xs font-semibold text-slate-700 dark:text-slate-300">
             Reading Date
           </label>
           <div className="relative">
             <Input
+              id="reading-date"
               type="date"
               max={todayStr}
               value={date}
@@ -147,20 +142,21 @@ export function ReadingFormModal({
               required
               className="pl-9"
             />
-            <Calendar className="absolute left-3 top-2.5 h-4 w-4 text-slate-400 pointer-events-none" />
+            <Calendar className="absolute left-3 top-2.5 h-4 w-4 text-slate-400 dark:text-slate-500 pointer-events-none" />
           </div>
-          <p className="mt-1 text-[11px] text-slate-500">
+          <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
             Cannot select future dates. Today is {todayStr}.
           </p>
         </div>
 
         {/* Slot Selector */}
         <div>
-          <label className="mb-1 block text-xs font-semibold text-slate-700">
+          <label htmlFor="reading-slot" className="mb-1 block text-xs font-semibold text-slate-700 dark:text-slate-300">
             Time Slot (4 slots allowed per day)
           </label>
           <div className="relative">
             <Select
+              id="reading-slot"
               value={slot}
               onChange={(e) => {
                 setSlot(e.target.value);
@@ -179,9 +175,9 @@ export function ReadingFormModal({
                 );
               })}
             </Select>
-            <Clock className="absolute left-3 top-2.5 h-4 w-4 text-slate-400 pointer-events-none" />
+            <Clock className="absolute left-3 top-2.5 h-4 w-4 text-slate-400 dark:text-slate-500 pointer-events-none" />
           </div>
-          <p className="mt-1 text-[11px] text-slate-500">
+          <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
             {SLOT_CONFIG[slot]?.description}
           </p>
         </div>
@@ -189,7 +185,7 @@ export function ReadingFormModal({
         {/* Glucose Value Field */}
         <div>
           <div className="flex items-center justify-between mb-1">
-            <label className="block text-xs font-semibold text-slate-700">
+            <label htmlFor="reading-value" className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
               Glucose Level (mg/dl)
             </label>
             {previewCategory && (
@@ -200,6 +196,7 @@ export function ReadingFormModal({
           </div>
           <div className="relative">
             <Input
+              id="reading-value"
               type="number"
               min="40"
               max="600"
@@ -213,17 +210,17 @@ export function ReadingFormModal({
               required
               className="pl-9 text-base font-semibold"
             />
-            <Gauge className="absolute left-3 top-2.5 h-4 w-4 text-slate-400 pointer-events-none" />
+            <Gauge className="absolute left-3 top-2.5 h-4 w-4 text-slate-400 dark:text-slate-500 pointer-events-none" />
           </div>
-          <p className="mt-1 text-[11px] text-slate-500">
+          <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
             Whole number between 40 and 600 mg/dl.
           </p>
         </div>
 
         {/* Guidance Reference Card */}
-        <div className="rounded-lg bg-slate-50 border border-slate-200/80 p-3 text-xs text-slate-600">
-          <div className="font-semibold text-slate-800 mb-1 flex items-center gap-1.5">
-            <Info className="h-3.5 w-3.5 text-emerald-600" />
+        <div className="rounded-lg bg-slate-50 border border-slate-200/80 p-3 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-300">
+          <div className="font-semibold text-slate-800 dark:text-slate-100 mb-1 flex items-center gap-1.5">
+            <Info className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
             Standard Glucose Targets:
           </div>
           <div className="grid grid-cols-2 gap-2 text-[11px] mt-1">

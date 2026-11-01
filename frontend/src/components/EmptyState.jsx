@@ -10,12 +10,12 @@ export function EmptyState({
   icon: Icon = Activity,
 }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200/80 bg-slate-50/50 p-8 text-center transition-all sm:p-12">
-      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 shadow-sm ring-8 ring-emerald-50/50">
+    <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200/80 bg-slate-50/50 p-8 text-center transition-all sm:p-12 dark:border-slate-800 dark:bg-slate-900/40">
+      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 shadow-sm ring-8 ring-emerald-50/50 dark:bg-emerald-950/60 dark:text-emerald-400 dark:ring-emerald-950/40">
         <Icon className="h-8 w-8" />
       </div>
-      <h3 className="mt-5 text-lg font-bold text-slate-800">{title}</h3>
-      <p className="mt-1.5 max-w-sm text-sm text-slate-500 leading-relaxed">
+      <h3 className="mt-5 text-lg font-bold text-slate-800 dark:text-slate-100">{title}</h3>
+      <p className="mt-1.5 max-w-sm text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
         {description}
       </p>
       {onAction && (

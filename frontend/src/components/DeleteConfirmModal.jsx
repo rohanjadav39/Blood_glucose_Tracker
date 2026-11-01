@@ -33,18 +33,18 @@ export function DeleteConfirmModal({
       title="Delete Blood Glucose Reading"
       description="This action cannot be undone. Are you sure you want to remove this reading?"
     >
-      <div className="my-4 rounded-xl border border-rose-100 bg-rose-50/50 p-4">
+      <div className="my-4 rounded-xl border border-rose-100 bg-rose-50/50 p-4 dark:border-rose-950/60 dark:bg-rose-950/30">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-rose-100 text-rose-600">
+          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-rose-100 text-rose-600 dark:bg-rose-900/60 dark:text-rose-300">
             <AlertTriangle className="h-5 w-5" />
           </div>
           <div>
-            <div className="text-sm font-bold text-slate-900">
+            <div className="text-sm font-bold text-slate-900 dark:text-slate-100">
               {reading.slot}
             </div>
-            <div className="text-xs text-slate-500">
+            <div className="text-xs text-slate-500 dark:text-slate-400">
               {formatDisplayDate(reading.date)} •{' '}
-              <span className="font-semibold text-rose-700">
+              <span className="font-semibold text-rose-700 dark:text-rose-400">
                 {reading.value} mg/dl
               </span>
             </div>

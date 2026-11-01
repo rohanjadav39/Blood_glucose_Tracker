@@ -1,5 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  darkMode: 'class',
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
@@ -54,7 +55,22 @@ export default {
       },
       boxShadow: {
         'soft': '0 2px 15px -3px rgba(0, 0, 0, 0.07), 0 10px 20px -2px rgba(0, 0, 0, 0.04)',
-        'glow-primary': '0 0 20px -5px rgba(16, 185, 129, 0.35)',
+        'glow-primary': '0 0 25px -5px rgba(16, 185, 129, 0.4)',
+        'glow-teal': '0 0 25px -5px rgba(20, 184, 166, 0.4)',
+      },
+      keyframes: {
+        pulseSlow: {
+          '0%, 100%': { transform: 'scale(1)', opacity: '1' },
+          '50%': { transform: 'scale(1.05)', opacity: '0.85' },
+        },
+        float: {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-6px)' },
+        }
+      },
+      animation: {
+        pulseSlow: 'pulseSlow 3s ease-in-out infinite',
+        float: 'float 4s ease-in-out infinite',
       }
     },
   },

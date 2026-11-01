@@ -19,17 +19,17 @@ export const Button = React.forwardRef(
 
     const variants = {
       default:
-        'bg-emerald-600 text-white shadow hover:bg-emerald-700 shadow-emerald-600/20',
+        'bg-emerald-600 text-white shadow hover:bg-emerald-700 shadow-emerald-600/20 dark:bg-emerald-500 dark:hover:bg-emerald-600 dark:shadow-emerald-500/25',
       secondary:
-        'bg-slate-100 text-slate-800 hover:bg-slate-200 border border-slate-200/80',
+        'bg-slate-100 text-slate-800 hover:bg-slate-200 border border-slate-200/80 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700 dark:hover:bg-slate-700',
       outline:
-        'border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 shadow-sm',
+        'border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 shadow-sm dark:border-slate-750 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-white',
       ghost:
-        'hover:bg-slate-100 text-slate-700 hover:text-slate-900',
+        'hover:bg-slate-100 text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white',
       destructive:
-        'bg-rose-600 text-white hover:bg-rose-700 shadow-sm shadow-rose-600/20',
+        'bg-rose-600 text-white hover:bg-rose-700 shadow-sm shadow-rose-600/20 dark:bg-rose-600 dark:hover:bg-rose-700',
       link:
-        'text-emerald-600 underline-offset-4 hover:underline p-0 h-auto font-semibold',
+        'text-emerald-600 dark:text-emerald-400 underline-offset-4 hover:underline p-0 h-auto font-semibold',
     };
 
     const sizes = {

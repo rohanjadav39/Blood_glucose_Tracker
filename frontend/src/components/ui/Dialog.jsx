@@ -25,7 +25,7 @@ export function Dialog({ isOpen, onClose, title, description, children, maxWidth
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity animate-in fade-in duration-200"
+        className="fixed inset-0 bg-slate-900/60 dark:bg-black/75 backdrop-blur-sm transition-opacity animate-in fade-in duration-200"
         onClick={onClose}
         aria-hidden="true"
       />
@@ -35,25 +35,25 @@ export function Dialog({ isOpen, onClose, title, description, children, maxWidth
         role="dialog"
         aria-modal="true"
         className={cn(
-          'relative w-full rounded-2xl bg-white p-6 shadow-2xl transition-all border border-slate-100 z-10 animate-in zoom-in-95 duration-200 my-auto',
+          'relative w-full rounded-2xl bg-white p-6 shadow-2xl transition-all border border-slate-100 z-10 animate-in zoom-in-95 duration-200 my-auto dark:bg-slate-900 dark:border-slate-800 dark:text-slate-100',
           maxWidth
         )}
       >
         <div className="flex items-start justify-between pb-3">
           <div>
             {title && (
-              <h2 className="text-xl font-bold tracking-tight text-slate-900">
+              <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-50">
                 {title}
               </h2>
             )}
             {description && (
-              <p className="mt-1 text-sm text-slate-500">{description}</p>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{description}</p>
             )}
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors"
+            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors dark:hover:bg-slate-800 dark:hover:text-slate-300"
           >
             <X className="h-5 w-5" />
             <span className="sr-only">Close</span>
