@@ -79,7 +79,8 @@ async function seedDatabase() {
         { slot: SLOTS[3], value: 115 + (offset % 6) * 4 },  // After dinner ~115-135
       ];
 
-      for (let i = 0; i < 4; i++) {
+      const slotsCountForDay = offset === 0 ? 2 : 4;
+      for (let i = 0; i < slotsCountForDay; i++) {
         readingsToInsert.push({
           date: dateStr,
           slot: sampleVals[i].slot,
