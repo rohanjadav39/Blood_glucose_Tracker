@@ -77,12 +77,48 @@ async function addReading(req, res, next) {
   }
 }
 
-// Get readings with optional date/range filters
+// Get readings with optional date/range filters & pagination
 async function getReadings(req, res, next) {
   try {
     const userId = req.user.id;
-    const { date, startDate, endDate, slot } = req.query;
+    const { date, startDate, endDate, slot, page, limit } = req.query;
 
+    let baseFilter = `WHERE user_id = $1`;
+    const filterParams = [userId];
+
+    if (date) {
+      filterParams.push(date);
+      baseFilter += ` AND date = $${filterParams.length}`;
+    } else {
+      if (startDate) {
+        filterParams.push(startDate);
+        baseFilter += ` AND date >= $${filterParams.length}`;
+      }
+      if (endDate) {
+        filterParams.push(endDate);
+        baseFilter += ` AND date <= $${filterParams.length}`;
+      }
+    }
+
+    if (slot) {
+      filterParams.push(slot);
+      baseFilter += ` AND slot = $${filterParams.length}`;
+    }
+
+    const isPaginated = page !== undefined || limit !== undefined;
+    const parsedPage = Math.max(1, parseInt(page, 10) || 1);
+    const parsedLimit = limit !== undefined ? Math.max(1, parseInt(limit, 10)) : 20;
+
+    let totalCount = null;
+    if (isPaginated) {
+      const countRes = await db.query(
+        `SELECT COUNT(*) AS total FROM readings ${baseFilter}`,
+        filterParams
+      );
+      totalCount = parseInt(countRes.rows[0].total, 10);
+    }
+
+    const queryParams = [...filterParams];
     let queryText = `
       SELECT 
         id, 
@@ -93,30 +129,7 @@ async function getReadings(req, res, next) {
         created_at, 
         updated_at
       FROM readings
-      WHERE user_id = $1
-    `;
-    const params = [userId];
-
-    if (date) {
-      params.push(date);
-      queryText += ` AND date = $${params.length}`;
-    } else {
-      if (startDate) {
-        params.push(startDate);
-        queryText += ` AND date >= $${params.length}`;
-      }
-      if (endDate) {
-        params.push(endDate);
-        queryText += ` AND date <= $${params.length}`;
-      }
-    }
-
-    if (slot) {
-      params.push(slot);
-      queryText += ` AND slot = $${params.length}`;
-    }
-
-    queryText += `
+      ${baseFilter}
       ORDER BY date DESC,
         CASE slot
           WHEN 'Morning (fasting)' THEN 1
@@ -127,13 +140,30 @@ async function getReadings(req, res, next) {
         END ASC
     `;
 
-    const result = await db.query(queryText, params);
+    if (isPaginated) {
+      const offset = (parsedPage - 1) * parsedLimit;
+      queryParams.push(parsedLimit);
+      queryText += ` LIMIT $${queryParams.length}`;
+      queryParams.push(offset);
+      queryText += ` OFFSET $${queryParams.length}`;
+    }
 
-    return res.status(200).json({
+    const result = await db.query(queryText, queryParams);
+
+    const responsePayload = {
       success: true,
       count: result.rows.length,
       readings: result.rows,
-    });
+    };
+
+    if (isPaginated) {
+      responsePayload.total = totalCount;
+      responsePayload.page = parsedPage;
+      responsePayload.limit = parsedLimit;
+      responsePayload.totalPages = Math.ceil(totalCount / parsedLimit) || 1;
+    }
+
+    return res.status(200).json(responsePayload);
   } catch (err) {
     next(err);
   }

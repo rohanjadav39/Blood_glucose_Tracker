@@ -96,6 +96,7 @@ async function getMonthToDateReport(req, res, next) {
       range: mtdRange,
       stats,
       readingsCount: readings.length,
+      readings,
     });
   } catch (err) {
     next(err);
@@ -141,6 +142,7 @@ async function getMonthlyReport(req, res, next) {
       range: monthlyRange,
       stats,
       readingsCount: readings.length,
+      readings,
     });
   } catch (err) {
     next(err);
@@ -209,12 +211,14 @@ async function getOverviewReport(req, res, next) {
         range: mtdRange,
         stats: mtdStats,
         count: mtdRes.rows.length,
+        readings: mtdRes.rows,
       },
       monthly: {
         title: `Monthly Report (${monthlyRange.previousMonthName})`,
         range: monthlyRange,
         stats: monthlyStats,
         count: monthlyRes.rows.length,
+        readings: monthlyRes.rows,
       },
     });
   } catch (err) {

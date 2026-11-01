@@ -65,23 +65,21 @@ async function seedDatabase() {
       return `${year}-${month}-${day}`;
     };
 
-    // Readings for current month: last 7 days leading up to today
-    for (let offset = 0; offset <= 6; offset++) {
+    // Readings for current month: 10 consecutive days leading up to today with all 4 slots
+    // This provides 40 total readings, cleanly demonstrating 2 pages of 20 readings (5 days x 4 readings per page)
+    for (let offset = 0; offset <= 9; offset++) {
       const d = new Date(today);
       d.setDate(today.getDate() - offset);
       const dateStr = formatDate(d);
 
-      // Vary values realistically
       const sampleVals = [
-        { slot: SLOTS[0], value: 92 + (offset % 5) * 3 },   // Fasting ~92-104
-        { slot: SLOTS[1], value: 128 + (offset % 4) * 6 },  // After breakfast ~128-146
-        { slot: SLOTS[2], value: 135 + (offset % 3) * 8 },  // After lunch ~135-151
-        { slot: SLOTS[3], value: 118 + (offset % 6) * 4 },  // After dinner ~118-138
+        { slot: SLOTS[0], value: 90 + (offset % 5) * 3 },   // Fasting ~90-102
+        { slot: SLOTS[1], value: 126 + (offset % 4) * 6 },  // After breakfast ~126-144
+        { slot: SLOTS[2], value: 132 + (offset % 3) * 8 },  // After lunch ~132-148
+        { slot: SLOTS[3], value: 115 + (offset % 6) * 4 },  // After dinner ~115-135
       ];
 
-      // Insert 3-4 readings per day
-      const countForDay = offset === 0 ? 3 : 4; // Today has 3 readings, earlier has 4
-      for (let i = 0; i < countForDay; i++) {
+      for (let i = 0; i < 4; i++) {
         readingsToInsert.push({
           date: dateStr,
           slot: sampleVals[i].slot,
